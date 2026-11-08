@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대시보드</title>
+<style>
+  /* 색상 토큰: 원본 대시보드(globals.css)와 동일한 팔레트 */
+  :root {
+    --background:#F4F6FA; --foreground:#2A3547; --card:#FFFFFF; --primary:#5D87FF; --primary-fg:#FFFFFF;
+    --secondary:#ECF2FF; --secondary-fg:#4570EA; --muted:#EEF2F8; --muted-fg:#5A6A85;
+    --destructive:#FA896B; --border:#E4E9F2; --radius:12px;
+    --sidebar:#111C43; --sidebar-fg:#C9D0E6; --sidebar-primary:#8C7CF0; --sidebar-accent:#1B2850;
+  }
+  html.dark {
+    --background:#0B1220; --foreground:#E7E9F5; --card:#121A2E; --primary:#7C9CFF; --primary-fg:#10162A;
+    --secondary:#1B2850; --secondary-fg:#C9D4FF; --muted:#1B2438; --muted-fg:#8B96AE;
+    --destructive:#FF9A80; --border:rgba(255,255,255,.08);
+  }
+  * { box-sizing:border-box; border-color:var(--border); }
+  html, body { margin:0; height:100%; }
+  body { background:var(--background); color:var(--foreground); font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif; font-size:14px; }
+  button { font:inherit; color:inherit; cursor:pointer; }
+  svg.i { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+
+  .app { display:flex; min-height:100%; }
+  aside { width:256px; background:var(--sidebar); padding:24px 16px; display:flex; flex-direction:column; gap:28px; flex-shrink:0; transition:width .2s; }
+  aside.collapsed { width:64px; padding:24px 8px; }
+  .brand { display:flex; align-items:center; justify-content:space-between; padding:0 8px; gap:8px; }
+  aside.collapsed .brand { flex-direction:column; gap:12px; }
+  .logo { display:flex; align-items:center; gap:10px; color:#fff; font-weight:700; font-size:16px; }
+  .logo b { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,#5D87FF,#8C7CF0); display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .toggle { width:32px; height:32px; border:0; background:transparent; color:rgba(201,208,230,.6); border-radius:8px; display:flex; align-items:center; justify-content:center; }
+  .toggle:hover { background:rgba(27,40,80,.6); color:#fff; }
+  .group-title { padding:0 12px 4px; font-size:11px; font-weight:600; color:rgba(201,208,230,.5); }
+  aside.collapsed .group-title, aside.collapsed .logo span, aside.collapsed .nav-label { display:none; }
+  nav { display:flex; flex-direction:column; gap:4px; }
+  nav a { display:flex; align-items:center; gap:12px; padding:8px 12px; border-left:3px solid transparent; border-radius:8px; color:rgba(201,208,230,.8); text-decoration:none; font-weight:500; }
+  aside.collapsed nav a { justify-content:center; padding:8px 0; }
+  nav a:hover { background:rgba(27,40,80,.6); color:#fff; }
+  nav a.active { border-left-color:var(--sidebar-primary); background:var(--sidebar-accent); color:#fff; }
+
+  .main { flex:1; min-width:0; display:flex; flex-direction:column; }
+  header { height:64px; background:var(--card); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:8px; }
+  header h1 { font-size:16px; font-weight:600; margin:0; }
+  header .sp { margin-left:auto; display:flex; gap:4px; }
+  main { padding:32px; display:flex; flex-direction:column; gap:16px; }
+  h2 { font-size:24px; font-weight:600; margin:0; }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+  .card h3 { margin:0 0 8px; font-size:15px; font-weight:600; }
+  .muted { color:var(--muted-fg); }
+  .grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+  .kpi { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  .kpi .l { font-size:13px; color:var(--muted-fg); }
+  .kpi .v { font-size:24px; font-weight:600; margin-top:4px; }
+  .ico { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ico svg.i { width:20px; height:20px; }
+
+  .btn { border:1px solid var(--border); background:var(--card); border-radius:8px; padding:6px 12px; display:inline-flex; align-items:center; gap:6px; justify-content:center; }
+  .btn:hover { background:var(--muted); }
+  .btn.on { background:var(--primary); border-color:var(--primary); color:var(--primary-fg); }
+  .btn.sm { padding:4px 10px; font-size:12.5px; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:500; border:1px solid var(--border); white-space:nowrap; }
+  .badge.destructive { background:var(--destructive); color:#fff; border-color:transparent; }
+  .badge.secondary { background:var(--secondary); color:var(--secondary-fg); border-color:transparent; }
+  .empty { border:1px dashed var(--border); border-radius:var(--radius); padding:64px 16px; text-align:center; color:var(--muted-fg); display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .empty svg.i { width:32px; height:32px; }
+
+  input[type=range] { width:100%; accent-color:var(--primary); }
+  input[type=text], input[type=datetime-local], input[type=date], select { border:1px solid var(--border); background:var(--card); color:inherit; border-radius:8px; padding:7px 10px; font:inherit; }
+  .fld { display:flex; flex-direction:column; gap:4px; font-size:13px; }
+  .fld span { color:var(--muted-fg); }
+  .sheet { overflow-y:auto; }
+
+  .list { display:flex; flex-direction:column; gap:8px; }
+  .item { display:flex; align-items:center; gap:12px; padding:12px; border:1px solid var(--border); border-radius:10px; background:transparent; text-align:left; width:100%; }
+  .item:hover { background:var(--muted); }
+  .item .t { flex:1; display:flex; flex-direction:column; }
+  .item .t b { font-size:14px; font-weight:500; }
+  .item .t small { font-size:12px; color:var(--muted-fg); }
+
+  .cols { display:flex; gap:16px; }
+  .col { flex:1; border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:12px; background:var(--card); }
+  .col .hd { display:flex; justify-content:space-between; align-items:center; }
+  .col .hd b { font-size:14px; }
+  .col .hd small { font-size:12px; color:var(--muted-fg); }
+  .tcard { border:1px solid var(--border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .tcard .top { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .tcard .meta { display:flex; justify-content:space-between; font-size:12px; color:var(--muted-fg); }
+  .over { color:var(--destructive); font-weight:600; }
+
+  /* 우측 상세 패널 */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; z-index:20; }
+  .overlay.open { display:block; }
+  .sheet { position:fixed; top:0; right:0; bottom:0; width:min(380px,100%); background:var(--card); padding:24px 16px; display:flex; flex-direction:column; gap:16px; transform:translateX(100%); transition:transform .2s; z-index:21; border-left:1px solid var(--border); }
+  .sheet.open { transform:none; }
+  .sheet h4 { margin:0; font-size:17px; }
+  .kv { display:flex; justify-content:space-between; gap:16px; font-size:14px; }
+
+  /* 캘린더 */
+  .cal-head { display:flex; align-items:center; gap:8px; }
+  .cal-head b { font-size:17px; margin:0 8px; }
+  .cal { display:grid; grid-template-columns:repeat(7,1fr); border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--card); }
+  .cal .dow { padding:8px; text-align:center; font-size:12px; color:var(--muted-fg); background:var(--muted); }
+  .cal .day { min-height:96px; padding:4px; border-top:1px solid var(--border); border-left:1px solid var(--border); display:flex; flex-direction:column; gap:2px; }
+  .cal .day:nth-child(7n+1) { border-left:0; }
+  .cal .day.other { background:var(--muted); opacity:.55; }
+  .cal .num { font-size:12px; padding:2px 4px; align-self:flex-start; border-radius:999px; }
+  .cal .day.today .num { background:var(--primary); color:var(--primary-fg); }
+  .chip { font-size:11.5px; padding:1px 6px; border-radius:4px; text-align:left; border:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; }
+  .chip.task { background:var(--secondary); color:var(--secondary-fg); }
+  .chip.done { text-decoration:line-through; opacity:.6; }
+  .chip.mine { background:#8C7CF0; color:#fff; }
+  .more { font-size:11px; color:var(--muted-fg); padding:0 6px; }
+
+  @media (max-width:1023px) { aside { display:none; } .grid4 { grid-template-columns:repeat(2,1fr); } main { padding:16px; } }
+  @media (max-width:767px) { .cols { flex-direction:column; } .grid4 { grid-template-columns:1fr; } .cal .day { min-height:64px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside id="side"></aside>
+  <div class="main">
+    <header><h1 id="pageTitle"></h1><div class="sp" id="themeBtns"></div></header>
+    <main id="view"></main>
+  </div>
+</div>
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet"></div>
+
+<script>
+/* ===== 데이터 (원본 대시보드의 더미 데이터를 그대로 내장) ===== */
+const SERVICE_NAME = "대시보드";
+const DATA_ANCHOR = "2026-09-02"; // 데이터상 "오늘" 기준일
+const DATA = {"tasks":[{"id":"task-1","title":"견적서 발송","project":"콘텐츠 제작","dueDate":"2026-09-20","status":"in_progress","priority":"medium","createdAt":"2026-06-10","completedAt":null},{"id":"task-2","title":"계약서 검토","project":"개인 사업","dueDate":"2026-09-11","status":"in_progress","priority":"medium","createdAt":"2026-08-29","completedAt":null},{"id":"task-3","title":"블로그 글 초안","project":"개인 사업","dueDate":"2026-09-06","status":"done","priority":"medium","createdAt":"2026-06-26","completedAt":"2026-07-31"},{"id":"task-4","title":"썸네일 디자인","project":"개인 사업","dueDate":"2026-08-28","status":"done","priority":"low","createdAt":"2026-04-14","completedAt":"2026-08-25"},{"id":"task-5","title":"고객 미팅 준비","project":"고객 관리","dueDate":"2026-09-25","status":"done","priority":"high","createdAt":"2026-05-10","completedAt":"2026-08-06"},{"id":"task-6","title":"월간 리포트 정리","project":"개인 사업","dueDate":"2026-09-08","status":"todo","priority":"high","createdAt":"2026-04-16","completedAt":null},{"id":"task-7","title":"세금계산서 발행","project":"자기계발","dueDate":"2026-09-09","status":"done","priority":"medium","createdAt":"2026-05-08","completedAt":"2026-07-15"},{"id":"task-8","title":"강의 자료 업데이트","project":"콘텐츠 제작","dueDate":"2026-09-07","status":"in_progress","priority":"low","createdAt":"2026-03-22","completedAt":null},{"id":"task-9","title":"SNS 콘텐츠 기획","project":"자기계발","dueDate":"2026-09-21","status":"todo","priority":"low","createdAt":"2026-05-25","completedAt":null},{"id":"task-10","title":"협력업체 컨택","project":"개인 사업","dueDate":"2026-09-10","status":"in_progress","priority":"low","createdAt":"2026-05-05","completedAt":null},{"id":"task-11","title":"환불 문의 응대","project":"고객 관리","dueDate":"2026-09-22","status":"todo","priority":"low","createdAt":"2026-07-02","completedAt":null},{"id":"task-12","title":"재고 확인","project":"고객 관리","dueDate":"2026-09-23","status":"done","priority":"medium","createdAt":"2026-05-20","completedAt":"2026-07-09"},{"id":"task-13","title":"홈페이지 문구 수정","project":"고객 관리","dueDate":"2026-09-06","status":"in_progress","priority":"low","createdAt":"2026-05-04","completedAt":null},{"id":"task-14","title":"뉴스레터 작성","project":"콘텐츠 제작","dueDate":"2026-09-26","status":"done","priority":"medium","createdAt":"2026-08-02","completedAt":"2026-07-16"},{"id":"task-15","title":"1:1 코칭 준비","project":"자기계발","dueDate":"2026-09-26","status":"done","priority":"medium","createdAt":"2026-08-30","completedAt":"2026-07-10"},{"id":"task-16","title":"포트폴리오 정리","project":"고객 관리","dueDate":"2026-09-04","status":"done","priority":"high","createdAt":"2026-05-05","completedAt":"2026-09-01"},{"id":"task-17","title":"외주 결과물 검토","project":"콘텐츠 제작","dueDate":"2026-09-05","status":"in_progress","priority":"medium","createdAt":"2026-06-26","completedAt":null},{"id":"task-18","title":"다음 분기 계획","project":"개인 사업","dueDate":"2026-09-18","status":"todo","priority":"high","createdAt":"2026-06-29","completedAt":null},{"id":"task-19","title":"이벤트 페이지 제작","project":"고객 관리","dueDate":"2026-09-18","status":"in_progress","priority":"high","createdAt":"2026-07-24","completedAt":null},{"id":"task-20","title":"고객 설문 분석","project":"자기계발","dueDate":"2026-09-07","status":"done","priority":"low","createdAt":"2026-04-06","completedAt":"2026-07-13"},{"id":"task-21","title":"정산 내역 확인","project":"개인 사업","dueDate":"2026-09-20","status":"in_progress","priority":"low","createdAt":"2026-06-22","completedAt":null},{"id":"task-22","title":"신규 상품 리서치","project":"고객 관리","dueDate":"2026-09-14","status":"in_progress","priority":"medium","createdAt":"2026-04-01","completedAt":null}],"automations":[{"id":"automation-1","name":"일일 매출 리포트 발송","description":"일일 매출 리포트 발송 자동화 파이프라인","category":"리포트","scheduleLabel":"매일 08:00","expectedIntervalDays":1,"status":"active"},{"id":"automation-2","name":"신규 문의 슬랙 알림","description":"신규 문의 슬랙 알림 자동화 파이프라인","category":"알림","scheduleLabel":"10분마다","expectedIntervalDays":1,"status":"active"},{"id":"automation-3","name":"경쟁사 가격 크롤링","description":"경쟁사 가격 크롤링 자동화 파이프라인","category":"데이터 수집","scheduleLabel":"매일 06:00","expectedIntervalDays":1,"status":"active"},{"id":"automation-4","name":"주간 뉴스레터 발송","description":"주간 뉴스레터 발송 자동화 파이프라인","category":"마케팅","scheduleLabel":"매주 월요일","expectedIntervalDays":7,"status":"active"},{"id":"automation-5","name":"DB 자동 백업","description":"DB 자동 백업 자동화 파이프라인","category":"백업","scheduleLabel":"매일 03:00","expectedIntervalDays":1,"status":"active"},{"id":"automation-6","name":"고객 설문 결과 집계","description":"고객 설문 결과 집계 자동화 파이프라인","category":"데이터 수집","scheduleLabel":"매주 금요일","expectedIntervalDays":7,"status":"active"},{"id":"automation-7","name":"인스타그램 예약 발행","description":"인스타그램 예약 발행 자동화 파이프라인","category":"마케팅","scheduleLabel":"매일 12:00","expectedIntervalDays":1,"status":"active"},{"id":"automation-8","name":"재고 부족 알림","description":"재고 부족 알림 자동화 파이프라인","category":"알림","scheduleLabel":"매일 09:00","expectedIntervalDays":1,"status":"active"},{"id":"automation-9","name":"월간 정산서 생성","description":"월간 정산서 생성 자동화 파이프라인","category":"리포트","scheduleLabel":"매월 1일","expectedIntervalDays":30,"status":"active"},{"id":"automation-10","name":"리뷰 수집 및 분류","description":"리뷰 수집 및 분류 자동화 파이프라인","category":"데이터 수집","scheduleLabel":"매일 20:00","expectedIntervalDays":1,"status":"active"}],"runs":[["automation-1","2026-03-06T14:31",1],["automation-1","2026-03-07T17:07",1],["automation-1","2026-03-08T08:41",1],["automation-1","2026-03-09T07:05",1],["automation-1","2026-03-10T14:16",1],["automation-1","2026-03-11T19:59",1],["automation-1","2026-03-12T00:57",1],["automation-1","2026-03-13T18:09",1],["automation-1","2026-03-14T16:27",1],["automation-1","2026-03-15T17:31",0],["automation-1","2026-03-16T02:33",1],["automation-1","2026-03-17T15:24",1],["automation-1","2026-03-18T07:57",0],["automation-1","2026-03-19T18:01",1],["automation-1","2026-03-20T04:04",1],["automation-1","2026-03-21T22:56",1],["automation-1","2026-03-22T05:36",1],["automation-1","2026-03-23T03:25",1],["automation-1","2026-03-24T10:17",1],["automation-1","2026-03-25T21:23",1],["automation-1","2026-03-26T03:51",1],["automation-1","2026-03-27T13:02",0],["automation-1","2026-03-28T23:34",1],["automation-1","2026-03-29T02:33",1],["automation-1","2026-03-30T19:18",0],["automation-1","2026-03-31T10:47",1],["automation-1","2026-04-01T23:36",1],["automation-1","2026-04-02T17:37",1],["automation-1","2026-04-03T14:40",1],["automation-1","2026-04-04T13:06",1],["automation-1","2026-04-05T23:10",0],["automation-1","2026-04-06T18:57",1],["automation-1","2026-04-07T07:42",1],["automation-1","2026-04-08T22:26",1],["automation-1","2026-04-09T18:10",0],["automation-1","2026-04-10T13:42",1],["automation-1","2026-04-11T02:35",1],["automation-1","2026-04-12T13:21",1],["automation-1","2026-04-13T19:26",1],["automation-1","2026-04-14T09:33",1],["automation-1","2026-04-15T20:23",1],["automation-1","2026-04-16T04:39",0],["automation-1","2026-04-17T06:21",1],["automation-1","2026-04-18T12:17",1],["automation-1","2026-04-19T16:58",1],["automation-1","2026-04-20T08:45",0],["automation-1","2026-04-21T08:02",1],["automation-1","2026-04-22T18:02",1],["automation-1","2026-04-23T18:15",1],["automation-1","2026-04-24T15:31",0],["automation-1","2026-04-25T21:53",1],["automation-1","2026-04-26T15:10",1],["automation-1","2026-04-27T07:04",1],["automation-1","2026-04-28T00:43",1],["automation-1","2026-04-29T03:49",1],["automation-1","2026-04-30T23:43",1],["automation-1","2026-05-01T00:19",1],["automation-1","2026-05-02T17:49",1],["automation-1","2026-05-03T07:16",1],["automation-1","2026-05-04T05:39",0],["automation-1","2026-05-05T23:11",1],["automation-1","2026-05-06T13:15",1],["automation-1","2026-05-07T01:03",1],["automation-1","2026-05-08T10:44",1],["automation-1","2026-05-09T00:27",1],["automation-1","2026-05-10T03:51",1],["automation-1","2026-05-11T23:44",1],["automation-1","2026-05-12T12:55",1],["automation-1","2026-05-13T21:42",1],["automation-1","2026-05-14T12:34",1],["automation-1","2026-05-15T02:35",1],["automation-1","2026-05-16T11:50",1],["automation-1","2026-05-17T05:49",1],["automation-1","2026-05-18T14:43",1],["automation-1","2026-05-19T08:41",1],["automation-1","2026-05-20T06:04",1],["automation-1","2026-05-21T08:49",1],["automation-1","2026-05-22T08:23",1],["automation-1","2026-05-23T10:42",0],["automation-1","2026-05-24T12:39",1],["automation-1","2026-05-25T05:01",1],["automation-1","2026-05-26T21:01",1],["automation-1","2026-05-27T19:37",1],["automation-1","2026-05-28T05:08",1],["automation-1","2026-05-29T07:55",1],["automation-1","2026-05-30T10:32",0],["automation-1","2026-05-31T04:27",1],["automation-1","2026-06-01T19:23",1],["automation-1","2026-06-02T05:06",1],["automation-1","2026-06-03T23:32",1],["automation-1","2026-06-04T05:56",1],["automation-1","2026-06-05T05:35",1],["automation-1","2026-06-06T13:42",1],["automation-1","2026-06-07T18:29",1],["automation-1","2026-06-08T12:17",0],["automation-1","2026-06-09T04:00",0],["automation-1","2026-06-10T06:06",1],["automation-1","2026-06-11T04:05",1],["automation-1","2026-06-12T12:20",1],["automation-1","2026-06-13T00:35",1],["automation-1","2026-06-14T22:29",1],["automation-1","2026-06-15T06:25",1],["automation-1","2026-06-16T11:09",1],["automation-1","2026-06-17T01:39",1],["automation-1","2026-06-18T17:24",1],["automation-1","2026-06-19T07:50",1],["automation-1","2026-06-20T05:03",1],["automation-1","2026-06-21T18:48",1],["automation-1","2026-06-22T18:37",1],["automation-1","2026-06-23T15:10",1],["automation-1","2026-06-24T14:51",1],["automation-1","2026-06-25T15:34",0],["automation-1","2026-06-26T19:22",1],["automation-1","2026-06-27T11:37",0],["automation-1","2026-06-28T06:39",1],["automation-1","2026-06-29T06:27",1],["automation-1","2026-06-30T02:54",1],["automation-1","2026-07-01T11:53",1],["automation-1","2026-07-02T14:33",1],["automation-1","2026-07-03T08:45",1],["automation-1","2026-07-04T16:12",1],["automation-1","2026-07-05T11:45",1],["automation-1","2026-07-06T05:21",1],["automation-1","2026-07-07T05:36",1],["automation-1","2026-07-08T19:20",1],["automation-1","2026-07-09T15:58",1],["automation-1","2026-07-10T23:35",1],["automation-1","2026-07-11T02:27",1],["automation-1","2026-07-12T17:55",0],["automation-1","2026-07-13T02:14",1],["automation-1","2026-07-14T20:45",1],["automation-1","2026-07-15T22:08",1],["automation-1","2026-07-16T13:29",1],["automation-1","2026-07-17T13:31",1],["automation-1","2026-07-18T09:08",1],["automation-1","2026-07-19T15:47",1],["automation-1","2026-07-20T13:15",1],["automation-1","2026-07-21T02:49",1],["automation-1","2026-07-22T08:54",1],["automation-1","2026-07-23T00:53",1],["automation-1","2026-07-24T17:21",1],["automation-1","2026-07-25T08:20",1],["automation-1","2026-07-26T08:54",1],["automation-1","2026-07-27T13:24",1],["automation-1","2026-07-28T23:12",1],["automation-1","2026-07-29T16:59",1],["automation-1","2026-07-30T07:02",1],["automation-1","2026-07-31T23:25",1],["automation-1","2026-08-01T01:19",1],["automation-1","2026-08-02T23:51",1],["automation-1","2026-08-03T12:59",1],["automation-1","2026-08-04T22:34",1],["automation-1","2026-08-05T05:30",1],["automation-1","2026-08-06T19:22",1],["automation-1","2026-08-07T15:33",1],["automation-1","2026-08-08T03:51",1],["automation-1","2026-08-09T01:48",1],["automation-1","2026-08-10T18:23",1],["automation-1","2026-08-11T04:29",1],["automation-1","2026-08-12T12:06",1],["automation-1","2026-08-13T00:40",1],["automation-1","2026-08-14T17:56",1],["automation-1","2026-08-15T23:21",1],["automation-1","2026-08-16T00:21",1],["automation-1","2026-08-17T22:52",1],["automation-1","2026-08-18T01:25",1],["automation-1","2026-08-19T14:05",1],["automation-1","2026-08-20T22:11",1],["automation-1","2026-08-21T23:28",1],["automation-1","2026-08-22T22:10",1],["automation-1","2026-08-23T16:06",1],["automation-1","2026-08-24T11:41",1],["automation-1","2026-08-25T19:26",1],["automation-1","2026-08-26T11:47",1],["automation-1","2026-08-27T06:36",1],["automation-1","2026-08-28T07:10",1],["automation-1","2026-08-29T01:06",1],["automation-2","2026-03-06T19:24",1],["automation-2","2026-03-07T18:54",1],["automation-2","2026-03-08T17:33",1],["automation-2","2026-03-09T07:22",1],["automation-2","2026-03-10T22:27",1],["automation-2","2026-03-11T01:18",1],["automation-2","2026-03-12T00:11",1],["automation-2","2026-03-13T11:16",1],["automation-2","2026-03-14T17:55",1],["automation-2","2026-03-15T13:15",0],["automation-2","2026-03-16T09:02",1],["automation-2","2026-03-17T00:25",1],["automation-2","2026-03-18T06:04",1],["automation-2","2026-03-19T04:09",1],["automation-2","2026-03-20T12:15",1],["automation-2","2026-03-21T04:21",1],["automation-2","2026-03-22T19:04",1],["automation-2","2026-03-23T11:19",1],["automation-2","2026-03-24T06:29",1],["automation-2","2026-03-25T22:47",1],["automation-2","2026-03-26T19:44",1],["automation-2","2026-03-27T08:36",1],["automation-2","2026-03-28T20:48",0],["automation-2","2026-03-29T17:08",1],["automation-2","2026-03-30T14:01",1],["automation-2","2026-03-31T13:22",1],["automation-2","2026-04-01T20:00",1],["automation-2","2026-04-02T13:20",1],["automation-2","2026-04-03T01:20",1],["automation-2","2026-04-04T23:02",1],["automation-2","2026-04-05T21:04",1],["automation-2","2026-04-06T12:52",0],["automation-2","2026-04-07T02:28",1],["automation-2","2026-04-08T00:19",1],["automation-2","2026-04-09T19:18",1],["automation-2","2026-04-10T08:50",1],["automation-2","2026-04-11T14:55",1],["automation-2","2026-04-12T08:08",1],["automation-2","2026-04-13T08:50",1],["automation-2","2026-04-14T10:06",1],["automation-2","2026-04-15T21:30",1],["automation-2","2026-04-16T09:31",1],["automation-2","2026-04-17T01:27",1],["automation-2","2026-04-18T11:01",1],["automation-2","2026-04-19T16:11",0],["automation-2","2026-04-20T22:23",1],["automation-2","2026-04-21T09:23",1],["automation-2","2026-04-22T22:46",0],["automation-2","2026-04-23T01:59",0],["automation-2","2026-04-24T21:55",1],["automation-2","2026-04-25T06:34",1],["automation-2","2026-04-26T02:53",1],["automation-2","2026-04-27T00:02",1],["automation-2","2026-04-28T21:22",1],["automation-2","2026-04-29T05:38",1],["automation-2","2026-04-30T20:05",1],["automation-2","2026-05-01T07:02",1],["automation-2","2026-05-02T13:24",1],["automation-2","2026-05-03T22:24",1],["automation-2","2026-05-04T14:17",1],["automation-2","2026-05-05T10:42",0],["automation-2","2026-05-06T10:38",1],["automation-2","2026-05-07T20:20",1],["automation-2","2026-05-08T00:48",1],["automation-2","2026-05-09T21:42",1],["automation-2","2026-05-10T14:33",0],["automation-2","2026-05-11T18:05",1],["automation-2","2026-05-12T20:16",1],["automation-2","2026-05-13T20:46",1],["automation-2","2026-05-14T05:21",1],["automation-2","2026-05-15T02:41",1],["automation-2","2026-05-16T19:53",1],["automation-2","2026-05-17T05:42",0],["automation-2","2026-05-18T21:00",1],["automation-2","2026-05-19T00:42",1],["automation-2","2026-05-20T00:30",1],["automation-2","2026-05-21T09:40",1],["automation-2","2026-05-22T01:53",1],["automation-2","2026-05-23T10:49",1],["automation-2","2026-05-24T09:29",1],["automation-2","2026-05-25T08:26",1],["automation-2","2026-05-26T11:39",1],["automation-2","2026-05-27T17:47",1],["automation-2","2026-05-28T15:22",1],["automation-2","2026-05-29T16:57",1],["automation-2","2026-05-30T23:19",1],["automation-2","2026-05-31T06:50",1],["automation-2","2026-06-01T09:36",0],["automation-2","2026-06-02T12:15",1],["automation-2","2026-06-03T05:03",1],["automation-2","2026-06-04T20:37",1],["automation-2","2026-06-05T09:49",1],["automation-2","2026-06-06T10:24",1],["automation-2","2026-06-07T10:19",1],["automation-2","2026-06-08T05:09",1],["automation-2","2026-06-09T02:51",1],["automation-2","2026-06-10T01:32",1],["automation-2","2026-06-11T03:25",1],["automation-2","2026-06-12T14:34",1],["automation-2","2026-06-13T19:53",1],["automation-2","2026-06-14T06:54",1],["automation-2","2026-06-15T02:07",1],["automation-2","2026-06-16T15:02",1],["automation-2","2026-06-17T01:34",1],["automation-2","2026-06-18T15:21",1],["automation-2","2026-06-19T22:03",0],["automation-2","2026-06-20T09:35",1],["automation-2","2026-06-21T13:11",1],["automation-2","2026-06-22T01:43",1],["automation-2","2026-06-23T00:51",1],["automation-2","2026-06-24T03:14",0],["automation-2","2026-06-25T09:52",1],["automation-2","2026-06-26T01:11",1],["automation-2","2026-06-27T09:57",1],["automation-2","2026-06-28T14:40",1],["automation-2","2026-06-29T03:36",1],["automation-2","2026-06-30T11:55",1],["automation-2","2026-07-01T18:44",1],["automation-2","2026-07-02T07:04",1],["automation-2","2026-07-03T09:04",1],["automation-2","2026-07-04T02:59",1],["automation-2","2026-07-05T15:12",1],["automation-2","2026-07-06T05:39",1],["automation-2","2026-07-07T21:17",1],["automation-2","2026-07-08T12:48",1],["automation-2","2026-07-09T19:48",0],["automation-2","2026-07-10T19:47",1],["automation-2","2026-07-11T07:54",1],["automation-2","2026-07-12T06:44",1],["automation-2","2026-07-13T09:29",1],["automation-2","2026-07-14T13:42",1],["automation-2","2026-07-15T13:07",1],["automation-2","2026-07-16T08:46",1],["automation-2","2026-07-17T14:41",1],["automation-2","2026-07-18T09:01",1],["automation-2","2026-07-19T23:16",1],["automation-2","2026-07-20T12:46",1],["automation-2","2026-07-21T23:33",1],["automation-2","2026-07-22T11:37",1],["automation-2","2026-07-23T14:53",1],["automation-2","2026-07-24T12:04",1],["automation-2","2026-07-25T14:28",1],["automation-2","2026-07-26T01:33",1],["automation-2","2026-07-27T07:00",1],["automation-2","2026-07-28T12:29",1],["automation-2","2026-07-29T23:06",1],["automation-2","2026-07-30T22:05",0],["automation-2","2026-07-31T15:42",1],["automation-2","2026-08-01T14:41",1],["automation-2","2026-08-02T02:48",1],["automation-2","2026-08-03T07:30",1],["automation-2","2026-08-04T07:01",1],["automation-2","2026-08-05T07:52",1],["automation-2","2026-08-06T02:51",1],["automation-2","2026-08-07T22:46",1],["automation-2","2026-08-08T19:17",1],["automation-2","2026-08-09T11:47",1],["automation-2","2026-08-10T11:06",1],["automation-2","2026-08-11T16:53",1],["automation-2","2026-08-12T11:35",1],["automation-2","2026-08-13T23:33",1],["automation-2","2026-08-14T22:40",1],["automation-2","2026-08-15T19:45",1],["automation-2","2026-08-16T12:35",1],["automation-2","2026-08-17T06:52",1],["automation-2","2026-08-18T15:08",1],["automation-2","2026-08-19T15:07",1],["automation-2","2026-08-20T21:43",1],["automation-2","2026-08-21T08:00",1],["automation-2","2026-08-22T03:42",1],["automation-2","2026-08-23T20:41",1],["automation-2","2026-08-24T16:05",1],["automation-2","2026-08-25T23:20",1],["automation-2","2026-08-26T15:55",1],["automation-2","2026-08-27T13:54",1],["automation-2","2026-08-28T20:38",1],["automation-2","2026-08-29T14:28",1],["automation-2","2026-08-30T18:12",1],["automation-2","2026-08-31T19:45",1],["automation-2","2026-09-01T10:11",1],["automation-3","2026-03-06T10:41",1],["automation-3","2026-03-07T02:09",1],["automation-3","2026-03-08T13:55",1],["automation-3","2026-03-09T17:53",1],["automation-3","2026-03-10T19:59",1],["automation-3","2026-03-11T10:21",1],["automation-3","2026-03-12T02:41",1],["automation-3","2026-03-13T21:36",1],["automation-3","2026-03-14T03:22",1],["automation-3","2026-03-15T18:41",1],["automation-3","2026-03-16T12:02",1],["automation-3","2026-03-17T22:12",1],["automation-3","2026-03-18T12:14",1],["automation-3","2026-03-19T09:30",1],["automation-3","2026-03-20T12:09",1],["automation-3","2026-03-21T01:35",1],["automation-3","2026-03-22T18:59",1],["automation-3","2026-03-23T01:21",0],["automation-3","2026-03-24T04:05",1],["automation-3","2026-03-25T06:23",1],["automation-3","2026-03-26T21:36",1],["automation-3","2026-03-27T05:32",1],["automation-3","2026-03-28T16:17",1],["automation-3","2026-03-29T21:21",1],["automation-3","2026-03-30T09:47",1],["automation-3","2026-03-31T17:27",1],["automation-3","2026-04-01T19:43",1],["automation-3","2026-04-02T22:59",1],["automation-3","2026-04-03T23:35",1],["automation-3","2026-04-04T18:56",0],["automation-3","2026-04-05T06:03",1],["automation-3","2026-04-06T14:14",1],["automation-3","2026-04-07T16:08",1],["automation-3","2026-04-08T02:09",1],["automation-3","2026-04-09T12:05",1],["automation-3","2026-04-10T16:50",1],["automation-3","2026-04-11T21:28",1],["automation-3","2026-04-12T15:10",1],["automation-3","2026-04-13T05:42",1],["automation-3","2026-04-14T16:47",1],["automation-3","2026-04-15T08:29",1],["automation-3","2026-04-16T03:28",1],["automation-3","2026-04-17T22:02",1],["automation-3","2026-04-18T19:47",1],["automation-3","2026-04-19T09:15",1],["automation-3","2026-04-20T19:20",1],["automation-3","2026-04-21T19:44",1],["automation-3","2026-04-22T16:22",1],["automation-3","2026-04-23T06:32",1],["automation-3","2026-04-24T14:05",1],["automation-3","2026-04-25T23:53",1],["automation-3","2026-04-26T20:51",1],["automation-3","2026-04-27T08:51",1],["automation-3","2026-04-28T04:38",1],["automation-3","2026-04-29T20:16",1],["automation-3","2026-04-30T16:20",1],["automation-3","2026-05-01T11:08",1],["automation-3","2026-05-02T06:25",1],["automation-3","2026-05-03T10:15",1],["automation-3","2026-05-04T21:58",1],["automation-3","2026-05-05T16:18",1],["automation-3","2026-05-06T00:36",1],["automation-3","2026-05-07T02:40",1],["automation-3","2026-05-08T12:55",1],["automation-3","2026-05-09T06:09",0],["automation-3","2026-05-10T14:30",1],["automation-3","2026-05-11T20:32",1],["automation-3","2026-05-12T13:45",1],["automation-3","2026-05-13T15:20",1],["automation-3","2026-05-14T05:35",1],["automation-3","2026-05-15T07:12",1],["automation-3","2026-05-16T05:59",1],["automation-3","2026-05-17T12:08",0],["automation-3","2026-05-18T00:56",1],["automation-3","2026-05-19T22:52",1],["automation-3","2026-05-20T23:36",1],["automation-3","2026-05-21T20:36",1],["automation-3","2026-05-22T08:49",1],["automation-3","2026-05-23T11:26",1],["automation-3","2026-05-24T09:52",1],["automation-3","2026-05-25T04:58",1],["automation-3","2026-05-26T01:24",1],["automation-3","2026-05-27T02:26",1],["automation-3","2026-05-28T13:42",1],["automation-3","2026-05-29T05:17",1],["automation-3","2026-05-30T04:28",1],["automation-3","2026-05-31T02:44",1],["automation-3","2026-06-01T12:08",1],["automation-3","2026-06-02T09:19",1],["automation-3","2026-06-03T06:17",1],["automation-3","2026-06-04T15:32",1],["automation-3","2026-06-05T01:13",1],["automation-3","2026-06-06T21:13",1],["automation-3","2026-06-07T16:42",1],["automation-3","2026-06-08T09:07",1],["automation-3","2026-06-09T05:52",1],["automation-3","2026-06-10T08:11",1],["automation-3","2026-06-11T03:35",1],["automation-3","2026-06-12T15:14",1],["automation-3","2026-06-13T06:59",1],["automation-3","2026-06-14T15:12",1],["automation-3","2026-06-15T09:35",1],["automation-3","2026-06-16T07:36",1],["automation-3","2026-06-17T01:41",1],["automation-3","2026-06-18T03:00",1],["automation-3","2026-06-19T04:27",1],["automation-3","2026-06-20T16:39",1],["automation-3","2026-06-21T23:47",1],["automation-3","2026-06-22T03:43",1],["automation-3","2026-06-23T19:41",1],["automation-3","2026-06-24T02:44",1],["automation-3","2026-06-25T05:05",1],["automation-3","2026-06-26T12:47",0],["automation-3","2026-06-27T19:34",1],["automation-3","2026-06-28T13:50",1],["automation-3","2026-06-29T16:26",1],["automation-3","2026-06-30T04:55",1],["automation-3","2026-07-01T08:24",1],["automation-3","2026-07-02T21:02",1],["automation-3","2026-07-03T05:02",1],["automation-3","2026-07-04T01:22",1],["automation-3","2026-07-05T20:48",1],["automation-3","2026-07-06T12:21",1],["automation-3","2026-07-07T13:10",1],["automation-3","2026-07-08T02:30",1],["automation-3","2026-07-09T07:20",1],["automation-3","2026-07-10T05:00",1],["automation-3","2026-07-11T14:55",1],["automation-3","2026-07-12T05:10",1],["automation-3","2026-07-13T10:56",1],["automation-3","2026-07-14T22:25",1],["automation-3","2026-07-15T15:53",1],["automation-3","2026-07-16T09:49",1],["automation-3","2026-07-17T04:52",1],["automation-3","2026-07-18T05:39",1],["automation-3","2026-07-19T11:10",1],["automation-3","2026-07-20T11:35",0],["automation-3","2026-07-21T12:53",1],["automation-3","2026-07-22T13:00",1],["automation-3","2026-07-23T03:31",1],["automation-3","2026-07-24T10:06",1],["automation-3","2026-07-25T21:03",0],["automation-3","2026-07-26T16:43",1],["automation-3","2026-07-27T15:27",0],["automation-3","2026-07-28T06:24",1],["automation-3","2026-07-29T19:41",1],["automation-3","2026-07-30T03:58",1],["automation-3","2026-07-31T01:29",1],["automation-3","2026-08-01T04:59",1],["automation-3","2026-08-02T04:59",1],["automation-3","2026-08-03T15:57",1],["automation-3","2026-08-04T04:55",1],["automation-3","2026-08-05T14:28",1],["automation-3","2026-08-06T14:29",1],["automation-3","2026-08-07T08:36",1],["automation-3","2026-08-08T02:47",1],["automation-3","2026-08-09T20:10",1],["automation-3","2026-08-10T15:08",1],["automation-3","2026-08-11T02:02",1],["automation-3","2026-08-12T02:53",1],["automation-3","2026-08-13T23:09",1],["automation-3","2026-08-14T23:34",1],["automation-3","2026-08-15T21:12",1],["automation-3","2026-08-16T18:56",1],["automation-3","2026-08-17T07:05",1],["automation-3","2026-08-18T08:35",1],["automation-3","2026-08-19T17:25",1],["automation-3","2026-08-20T07:10",1],["automation-3","2026-08-21T02:53",1],["automation-3","2026-08-22T11:06",1],["automation-3","2026-08-23T20:02",1],["automation-3","2026-08-24T14:21",1],["automation-3","2026-08-25T18:47",1],["automation-3","2026-08-26T05:22",1],["automation-3","2026-08-27T17:58",1],["automation-3","2026-08-28T17:18",1],["automation-4","2026-03-06T02:25",1],["automation-4","2026-03-13T03:58",1],["automation-4","2026-03-20T12:15",1],["automation-4","2026-03-27T05:15",1],["automation-4","2026-04-03T04:40",1],["automation-4","2026-04-10T00:55",1],["automation-4","2026-04-17T12:44",1],["automation-4","2026-04-24T18:28",1],["automation-4","2026-05-01T17:05",1],["automation-4","2026-05-08T07:44",1],["automation-4","2026-05-15T04:58",1],["automation-4","2026-05-22T07:39",1],["automation-4","2026-05-29T09:06",1],["automation-4","2026-06-05T18:47",1],["automation-4","2026-06-12T23:21",1],["automation-4","2026-06-19T22:32",1],["automation-4","2026-06-26T15:07",1],["automation-4","2026-07-03T14:00",1],["automation-4","2026-07-10T09:33",1],["automation-4","2026-07-17T20:58",1],["automation-4","2026-07-24T12:28",1],["automation-4","2026-07-31T20:11",1],["automation-4","2026-08-07T18:33",1],["automation-4","2026-08-14T03:03",1],["automation-4","2026-08-21T09:53",1],["automation-4","2026-08-28T16:59",1],["automation-5","2026-03-06T05:46",1],["automation-5","2026-03-07T07:18",1],["automation-5","2026-03-08T16:02",0],["automation-5","2026-03-09T15:08",1],["automation-5","2026-03-10T10:21",1],["automation-5","2026-03-11T12:26",1],["automation-5","2026-03-12T11:27",1],["automation-5","2026-03-13T12:08",1],["automation-5","2026-03-14T02:21",1],["automation-5","2026-03-15T04:59",1],["automation-5","2026-03-16T00:05",1],["automation-5","2026-03-17T00:39",1],["automation-5","2026-03-18T13:48",1],["automation-5","2026-03-19T00:16",1],["automation-5","2026-03-20T16:25",1],["automation-5","2026-03-21T07:50",1],["automation-5","2026-03-22T03:36",1],["automation-5","2026-03-23T18:40",1],["automation-5","2026-03-24T00:49",1],["automation-5","2026-03-25T19:28",1],["automation-5","2026-03-26T16:36",0],["automation-5","2026-03-27T23:31",1],["automation-5","2026-03-28T02:25",1],["automation-5","2026-03-29T21:18",1],["automation-5","2026-03-30T17:03",1],["automation-5","2026-03-31T02:30",1],["automation-5","2026-04-01T02:41",1],["automation-5","2026-04-02T23:48",1],["automation-5","2026-04-03T08:54",1],["automation-5","2026-04-04T10:29",0],["automation-5","2026-04-05T09:48",1],["automation-5","2026-04-06T13:08",1],["automation-5","2026-04-07T04:52",1],["automation-5","2026-04-08T08:53",1],["automation-5","2026-04-09T14:23",1],["automation-5","2026-04-10T16:15",1],["automation-5","2026-04-11T11:24",1],["automation-5","2026-04-12T11:55",1],["automation-5","2026-04-13T03:19",1],["automation-5","2026-04-14T20:31",1],["automation-5","2026-04-15T17:36",1],["automation-5","2026-04-16T05:14",1],["automation-5","2026-04-17T22:29",1],["automation-5","2026-04-18T03:26",1],["automation-5","2026-04-19T09:48",1],["automation-5","2026-04-20T11:58",1],["automation-5","2026-04-21T01:18",1],["automation-5","2026-04-22T14:46",1],["automation-5","2026-04-23T09:35",1],["automation-5","2026-04-24T10:27",1],["automation-5","2026-04-25T18:37",1],["automation-5","2026-04-26T09:57",0],["automation-5","2026-04-27T22:59",1],["automation-5","2026-04-28T16:46",1],["automation-5","2026-04-29T05:08",1],["automation-5","2026-04-30T06:36",1],["automation-5","2026-05-01T11:25",1],["automation-5","2026-05-02T12:22",0],["automation-5","2026-05-03T07:51",1],["automation-5","2026-05-04T09:22",1],["automation-5","2026-05-05T04:22",1],["automation-5","2026-05-06T14:16",1],["automation-5","2026-05-07T04:27",1],["automation-5","2026-05-08T20:25",1],["automation-5","2026-05-09T20:22",1],["automation-5","2026-05-10T13:43",1],["automation-5","2026-05-11T10:08",1],["automation-5","2026-05-12T23:59",1],["automation-5","2026-05-13T12:59",1],["automation-5","2026-05-14T15:43",1],["automation-5","2026-05-15T01:19",1],["automation-5","2026-05-16T04:50",1],["automation-5","2026-05-17T17:12",1],["automation-5","2026-05-18T21:52",1],["automation-5","2026-05-19T23:40",1],["automation-5","2026-05-20T12:21",1],["automation-5","2026-05-21T03:03",1],["automation-5","2026-05-22T22:53",1],["automation-5","2026-05-23T17:38",1],["automation-5","2026-05-24T19:10",0],["automation-5","2026-05-25T06:05",1],["automation-5","2026-05-26T03:05",1],["automation-5","2026-05-27T04:32",1],["automation-5","2026-05-28T13:54",0],["automation-5","2026-05-29T04:11",1],["automation-5","2026-05-30T17:39",1],["automation-5","2026-05-31T21:56",1],["automation-5","2026-06-01T08:53",1],["automation-5","2026-06-02T21:53",1],["automation-5","2026-06-03T22:55",1],["automation-5","2026-06-04T11:41",1],["automation-5","2026-06-05T14:37",1],["automation-5","2026-06-06T08:33",1],["automation-5","2026-06-07T12:05",1],["automation-5","2026-06-08T06:33",1],["automation-5","2026-06-09T07:26",1],["automation-5","2026-06-10T04:58",1],["automation-5","2026-06-11T16:02",1],["automation-5","2026-06-12T10:35",1],["automation-5","2026-06-13T17:14",1],["automation-5","2026-06-14T13:10",1],["automation-5","2026-06-15T10:40",1],["automation-5","2026-06-16T10:35",1],["automation-5","2026-06-17T11:09",1],["automation-5","2026-06-18T02:06",1],["automation-5","2026-06-19T15:39",1],["automation-5","2026-06-20T12:01",1],["automation-5","2026-06-21T21:22",1],["automation-5","2026-06-22T18:40",1],["automation-5","2026-06-23T18:44",1],["automation-5","2026-06-24T13:36",1],["automation-5","2026-06-25T08:40",1],["automation-5","2026-06-26T07:47",1],["automation-5","2026-06-27T15:43",1],["automation-5","2026-06-28T12:15",1],["automation-5","2026-06-29T19:28",1],["automation-5","2026-06-30T23:09",1],["automation-5","2026-07-01T20:48",1],["automation-5","2026-07-02T09:03",1],["automation-5","2026-07-03T03:09",0],["automation-5","2026-07-04T07:07",1],["automation-5","2026-07-05T14:08",1],["automation-5","2026-07-06T07:53",1],["automation-5","2026-07-07T17:13",1],["automation-5","2026-07-08T00:42",1],["automation-5","2026-07-09T16:02",1],["automation-5","2026-07-10T06:40",1],["automation-5","2026-07-11T17:27",1],["automation-5","2026-07-12T12:32",0],["automation-5","2026-07-13T13:42",1],["automation-5","2026-07-14T09:13",1],["automation-5","2026-07-15T16:26",0],["automation-5","2026-07-16T11:12",1],["automation-5","2026-07-17T21:06",1],["automation-5","2026-07-18T22:33",1],["automation-5","2026-07-19T06:04",1],["automation-5","2026-07-20T02:01",1],["automation-5","2026-07-21T16:59",1],["automation-5","2026-07-22T06:55",1],["automation-5","2026-07-23T22:52",1],["automation-5","2026-07-24T21:49",1],["automation-5","2026-07-25T06:36",1],["automation-5","2026-07-26T23:44",1],["automation-5","2026-07-27T04:45",1],["automation-5","2026-07-28T02:15",1],["automation-5","2026-07-29T17:59",1],["automation-5","2026-07-30T07:33",1],["automation-5","2026-07-31T03:49",1],["automation-5","2026-08-01T08:47",1],["automation-5","2026-08-02T01:41",1],["automation-5","2026-08-03T18:58",1],["automation-5","2026-08-04T02:52",1],["automation-5","2026-08-05T04:38",1],["automation-5","2026-08-06T17:37",1],["automation-5","2026-08-07T16:49",1],["automation-5","2026-08-08T07:47",1],["automation-5","2026-08-09T02:28",1],["automation-5","2026-08-10T04:19",1],["automation-5","2026-08-11T12:24",1],["automation-5","2026-08-12T13:30",1],["automation-5","2026-08-13T00:08",0],["automation-5","2026-08-14T11:47",1],["automation-5","2026-08-15T19:42",1],["automation-5","2026-08-16T12:22",1],["automation-5","2026-08-17T06:53",1],["automation-5","2026-08-18T17:35",1],["automation-5","2026-08-19T23:52",1],["automation-5","2026-08-20T03:27",1],["automation-5","2026-08-21T00:19",1],["automation-5","2026-08-22T21:00",1],["automation-5","2026-08-23T15:33",0],["automation-5","2026-08-24T05:53",1],["automation-5","2026-08-25T15:12",1],["automation-5","2026-08-26T05:31",1],["automation-5","2026-08-27T20:29",1],["automation-5","2026-08-28T08:59",1],["automation-5","2026-08-29T21:18",0],["automation-5","2026-08-30T01:26",1],["automation-5","2026-08-31T11:33",1],["automation-5","2026-09-01T17:24",1],["automation-6","2026-03-06T13:02",1],["automation-6","2026-03-13T06:52",1],["automation-6","2026-03-20T08:59",1],["automation-6","2026-03-27T17:16",1],["automation-6","2026-04-03T13:30",1],["automation-6","2026-04-10T22:23",1],["automation-6","2026-04-17T14:13",1],["automation-6","2026-04-24T08:59",0],["automation-6","2026-05-01T15:36",1],["automation-6","2026-05-08T03:31",0],["automation-6","2026-05-15T00:14",1],["automation-6","2026-05-22T05:37",1],["automation-6","2026-05-29T01:58",1],["automation-6","2026-06-05T03:41",1],["automation-6","2026-06-12T04:14",1],["automation-6","2026-06-19T15:04",1],["automation-6","2026-06-26T22:50",1],["automation-6","2026-07-03T14:29",1],["automation-6","2026-07-10T23:26",1],["automation-6","2026-07-17T16:13",1],["automation-6","2026-07-24T15:44",1],["automation-6","2026-07-31T09:18",1],["automation-6","2026-08-07T07:48",1],["automation-6","2026-08-14T15:08",1],["automation-6","2026-08-21T14:36",0],["automation-6","2026-08-28T15:10",1],["automation-7","2026-03-06T11:40",1],["automation-7","2026-03-07T14:24",0],["automation-7","2026-03-08T22:55",1],["automation-7","2026-03-09T15:53",1],["automation-7","2026-03-10T18:20",1],["automation-7","2026-03-11T11:31",1],["automation-7","2026-03-12T09:57",1],["automation-7","2026-03-13T05:27",1],["automation-7","2026-03-14T02:51",1],["automation-7","2026-03-15T08:57",1],["automation-7","2026-03-16T15:11",1],["automation-7","2026-03-17T20:04",1],["automation-7","2026-03-18T01:33",1],["automation-7","2026-03-19T05:20",1],["automation-7","2026-03-20T22:46",1],["automation-7","2026-03-21T08:42",1],["automation-7","2026-03-22T03:42",1],["automation-7","2026-03-23T19:33",1],["automation-7","2026-03-24T00:16",1],["automation-7","2026-03-25T11:44",1],["automation-7","2026-03-26T19:49",1],["automation-7","2026-03-27T12:38",1],["automation-7","2026-03-28T19:06",1],["automation-7","2026-03-29T02:42",1],["automation-7","2026-03-30T13:17",1],["automation-7","2026-03-31T00:00",1],["automation-7","2026-04-01T07:07",1],["automation-7","2026-04-02T06:34",1],["automation-7","2026-04-03T22:37",1],["automation-7","2026-04-04T16:13",1],["automation-7","2026-04-05T13:43",1],["automation-7","2026-04-06T19:07",1],["automation-7","2026-04-07T17:37",1],["automation-7","2026-04-08T16:18",1],["automation-7","2026-04-09T21:56",1],["automation-7","2026-04-10T23:27",1],["automation-7","2026-04-11T10:58",1],["automation-7","2026-04-12T05:28",1],["automation-7","2026-04-13T22:38",1],["automation-7","2026-04-14T23:31",1],["automation-7","2026-04-15T22:17",1],["automation-7","2026-04-16T17:24",1],["automation-7","2026-04-17T21:37",0],["automation-7","2026-04-18T05:05",1],["automation-7","2026-04-19T20:47",1],["automation-7","2026-04-20T08:23",1],["automation-7","2026-04-21T20:17",1],["automation-7","2026-04-22T17:07",1],["automation-7","2026-04-23T14:06",1],["automation-7","2026-04-24T05:12",1],["automation-7","2026-04-25T00:30",1],["automation-7","2026-04-26T07:58",1],["automation-7","2026-04-27T23:28",1],["automation-7","2026-04-28T22:46",1],["automation-7","2026-04-29T11:01",1],["automation-7","2026-04-30T18:44",1],["automation-7","2026-05-01T07:59",1],["automation-7","2026-05-02T00:02",1],["automation-7","2026-05-03T00:29",1],["automation-7","2026-05-04T17:37",1],["automation-7","2026-05-05T00:13",0],["automation-7","2026-05-06T05:27",1],["automation-7","2026-05-07T04:08",1],["automation-7","2026-05-08T21:39",1],["automation-7","2026-05-09T18:16",1],["automation-7","2026-05-10T07:18",1],["automation-7","2026-05-11T02:32",1],["automation-7","2026-05-12T04:18",1],["automation-7","2026-05-13T06:43",1],["automation-7","2026-05-14T08:13",1],["automation-7","2026-05-15T20:51",1],["automation-7","2026-05-16T22:36",1],["automation-7","2026-05-17T01:05",1],["automation-7","2026-05-18T10:51",1],["automation-7","2026-05-19T04:20",1],["automation-7","2026-05-20T00:30",1],["automation-7","2026-05-21T08:18",1],["automation-7","2026-05-22T21:52",1],["automation-7","2026-05-23T22:58",1],["automation-7","2026-05-24T20:31",1],["automation-7","2026-05-25T18:10",1],["automation-7","2026-05-26T00:05",1],["automation-7","2026-05-27T19:14",1],["automation-7","2026-05-28T02:46",1],["automation-7","2026-05-29T17:25",1],["automation-7","2026-05-30T07:21",1],["automation-7","2026-05-31T06:14",1],["automation-7","2026-06-01T14:21",1],["automation-7","2026-06-02T14:23",1],["automation-7","2026-06-03T05:11",1],["automation-7","2026-06-04T17:33",1],["automation-7","2026-06-05T14:24",1],["automation-7","2026-06-06T17:40",1],["automation-7","2026-06-07T12:29",1],["automation-7","2026-06-08T17:00",1],["automation-7","2026-06-09T07:58",1],["automation-7","2026-06-10T19:16",1],["automation-7","2026-06-11T05:32",1],["automation-7","2026-06-12T00:35",1],["automation-7","2026-06-13T15:05",1],["automation-7","2026-06-14T23:51",1],["automation-7","2026-06-15T09:58",1],["automation-7","2026-06-16T04:38",1],["automation-7","2026-06-17T03:45",1],["automation-7","2026-06-18T02:29",1],["automation-7","2026-06-19T20:14",1],["automation-7","2026-06-20T05:58",1],["automation-7","2026-06-21T07:20",1],["automation-7","2026-06-22T06:10",1],["automation-7","2026-06-23T15:33",1],["automation-7","2026-06-24T11:10",1],["automation-7","2026-06-25T14:09",1],["automation-7","2026-06-26T13:19",1],["automation-7","2026-06-27T00:42",0],["automation-7","2026-06-28T07:12",1],["automation-7","2026-06-29T00:19",1],["automation-7","2026-06-30T17:47",1],["automation-7","2026-07-01T04:38",1],["automation-7","2026-07-02T07:27",1],["automation-7","2026-07-03T04:22",1],["automation-7","2026-07-04T07:12",1],["automation-7","2026-07-05T23:21",1],["automation-7","2026-07-06T16:45",1],["automation-7","2026-07-07T06:21",1],["automation-7","2026-07-08T00:55",1],["automation-7","2026-07-09T04:33",1],["automation-7","2026-07-10T08:58",1],["automation-7","2026-07-11T03:25",1],["automation-7","2026-07-12T09:38",1],["automation-7","2026-07-13T08:46",1],["automation-7","2026-07-14T04:40",1],["automation-7","2026-07-15T18:33",0],["automation-7","2026-07-16T19:51",1],["automation-7","2026-07-17T17:31",1],["automation-7","2026-07-18T06:24",1],["automation-7","2026-07-19T04:44",1],["automation-7","2026-07-20T19:08",1],["automation-7","2026-07-21T16:37",1],["automation-7","2026-07-22T09:36",1],["automation-7","2026-07-23T07:19",0],["automation-7","2026-07-24T02:25",1],["automation-7","2026-07-25T21:22",1],["automation-7","2026-07-26T15:06",1],["automation-7","2026-07-27T22:37",1],["automation-7","2026-07-28T14:04",1],["automation-7","2026-07-29T00:25",1],["automation-7","2026-07-30T20:56",1],["automation-7","2026-07-31T18:45",1],["automation-7","2026-08-01T21:01",1],["automation-7","2026-08-02T19:55",1],["automation-7","2026-08-03T12:04",1],["automation-7","2026-08-04T23:28",1],["automation-7","2026-08-05T14:39",1],["automation-7","2026-08-06T08:49",1],["automation-7","2026-08-07T03:04",1],["automation-7","2026-08-08T17:51",1],["automation-7","2026-08-09T05:22",1],["automation-7","2026-08-10T22:57",1],["automation-7","2026-08-11T18:35",1],["automation-7","2026-08-12T06:03",1],["automation-7","2026-08-13T20:44",1],["automation-7","2026-08-14T01:00",1],["automation-7","2026-08-15T11:57",1],["automation-7","2026-08-16T15:46",1],["automation-7","2026-08-17T12:54",0],["automation-7","2026-08-18T06:29",1],["automation-7","2026-08-19T11:39",1],["automation-7","2026-08-20T04:06",1],["automation-7","2026-08-21T23:16",1],["automation-7","2026-08-22T23:06",1],["automation-7","2026-08-23T23:48",1],["automation-7","2026-08-24T15:25",1],["automation-7","2026-08-25T15:56",0],["automation-7","2026-08-26T05:03",1],["automation-7","2026-08-27T05:46",1],["automation-7","2026-08-28T21:55",1],["automation-7","2026-08-29T10:51",1],["automation-7","2026-08-30T14:47",1],["automation-7","2026-08-31T14:26",1],["automation-7","2026-09-01T22:54",1],["automation-8","2026-03-06T18:39",1],["automation-8","2026-03-07T04:14",1],["automation-8","2026-03-08T16:50",1],["automation-8","2026-03-09T04:16",1],["automation-8","2026-03-10T04:36",1],["automation-8","2026-03-11T08:51",0],["automation-8","2026-03-12T11:08",1],["automation-8","2026-03-13T08:17",1],["automation-8","2026-03-14T06:16",1],["automation-8","2026-03-15T23:53",1],["automation-8","2026-03-16T21:35",1],["automation-8","2026-03-17T13:12",1],["automation-8","2026-03-18T05:36",1],["automation-8","2026-03-19T21:37",1],["automation-8","2026-03-20T07:32",1],["automation-8","2026-03-21T20:24",1],["automation-8","2026-03-22T06:42",1],["automation-8","2026-03-23T14:23",1],["automation-8","2026-03-24T22:23",1],["automation-8","2026-03-25T16:13",1],["automation-8","2026-03-26T06:00",1],["automation-8","2026-03-27T18:44",1],["automation-8","2026-03-28T07:36",1],["automation-8","2026-03-29T11:39",1],["automation-8","2026-03-30T19:43",1],["automation-8","2026-03-31T07:52",1],["automation-8","2026-04-01T20:32",1],["automation-8","2026-04-02T20:13",1],["automation-8","2026-04-03T06:50",1],["automation-8","2026-04-04T14:04",1],["automation-8","2026-04-05T12:51",1],["automation-8","2026-04-06T17:00",1],["automation-8","2026-04-07T10:53",1],["automation-8","2026-04-08T04:52",1],["automation-8","2026-04-09T22:48",1],["automation-8","2026-04-10T15:24",1],["automation-8","2026-04-11T03:39",1],["automation-8","2026-04-12T16:03",1],["automation-8","2026-04-13T18:04",1],["automation-8","2026-04-14T13:17",1],["automation-8","2026-04-15T03:14",1],["automation-8","2026-04-16T03:52",1],["automation-8","2026-04-17T00:54",1],["automation-8","2026-04-18T09:22",1],["automation-8","2026-04-19T21:05",1],["automation-8","2026-04-20T00:17",0],["automation-8","2026-04-21T14:49",1],["automation-8","2026-04-22T08:23",1],["automation-8","2026-04-23T09:14",1],["automation-8","2026-04-24T15:08",1],["automation-8","2026-04-25T22:39",1],["automation-8","2026-04-26T11:11",1],["automation-8","2026-04-27T03:58",0],["automation-8","2026-04-28T11:50",1],["automation-8","2026-04-29T02:47",1],["automation-8","2026-04-30T21:05",1],["automation-8","2026-05-01T16:10",1],["automation-8","2026-05-02T12:39",1],["automation-8","2026-05-03T17:39",1],["automation-8","2026-05-04T20:15",1],["automation-8","2026-05-05T12:49",1],["automation-8","2026-05-06T15:08",0],["automation-8","2026-05-07T16:39",1],["automation-8","2026-05-08T04:11",1],["automation-8","2026-05-09T11:22",1],["automation-8","2026-05-10T23:01",1],["automation-8","2026-05-11T18:49",1],["automation-8","2026-05-12T20:30",0],["automation-8","2026-05-13T16:14",0],["automation-8","2026-05-14T00:13",1],["automation-8","2026-05-15T14:38",1],["automation-8","2026-05-16T10:24",1],["automation-8","2026-05-17T14:31",1],["automation-8","2026-05-18T00:06",0],["automation-8","2026-05-19T11:01",1],["automation-8","2026-05-20T20:56",1],["automation-8","2026-05-21T19:07",1],["automation-8","2026-05-22T05:12",1],["automation-8","2026-05-23T06:14",1],["automation-8","2026-05-24T00:26",0],["automation-8","2026-05-25T20:29",1],["automation-8","2026-05-26T04:38",1],["automation-8","2026-05-27T16:02",1],["automation-8","2026-05-28T19:49",1],["automation-8","2026-05-29T11:47",1],["automation-8","2026-05-30T12:54",1],["automation-8","2026-05-31T18:33",0],["automation-8","2026-06-01T00:03",1],["automation-8","2026-06-02T23:12",1],["automation-8","2026-06-03T02:22",1],["automation-8","2026-06-04T11:49",1],["automation-8","2026-06-05T15:11",1],["automation-8","2026-06-06T06:23",1],["automation-8","2026-06-07T05:55",0],["automation-8","2026-06-08T15:43",1],["automation-8","2026-06-09T02:42",1],["automation-8","2026-06-10T01:15",1],["automation-8","2026-06-11T15:18",1],["automation-8","2026-06-12T16:29",1],["automation-8","2026-06-13T07:11",1],["automation-8","2026-06-14T15:47",1],["automation-8","2026-06-15T14:34",1],["automation-8","2026-06-16T10:04",1],["automation-8","2026-06-17T21:47",1],["automation-8","2026-06-18T07:04",1],["automation-8","2026-06-19T02:34",1],["automation-8","2026-06-20T18:22",1],["automation-8","2026-06-21T05:50",1],["automation-8","2026-06-22T11:21",1],["automation-8","2026-06-23T15:22",0],["automation-8","2026-06-24T08:45",1],["automation-8","2026-06-25T00:09",1],["automation-8","2026-06-26T18:27",1],["automation-8","2026-06-27T07:50",1],["automation-8","2026-06-28T05:12",1],["automation-8","2026-06-29T14:01",1],["automation-8","2026-06-30T22:11",1],["automation-8","2026-07-01T08:01",1],["automation-8","2026-07-02T15:03",0],["automation-8","2026-07-03T08:36",1],["automation-8","2026-07-04T21:42",1],["automation-8","2026-07-05T17:32",1],["automation-8","2026-07-06T10:46",1],["automation-8","2026-07-07T11:51",1],["automation-8","2026-07-08T03:42",1],["automation-8","2026-07-09T11:26",1],["automation-8","2026-07-10T12:17",1],["automation-8","2026-07-11T06:00",1],["automation-8","2026-07-12T17:38",0],["automation-8","2026-07-13T11:07",1],["automation-8","2026-07-14T12:24",1],["automation-8","2026-07-15T08:57",1],["automation-8","2026-07-16T04:10",1],["automation-8","2026-07-17T08:28",1],["automation-8","2026-07-18T13:51",1],["automation-8","2026-07-19T04:26",1],["automation-8","2026-07-20T12:51",1],["automation-8","2026-07-21T16:28",1],["automation-8","2026-07-22T00:38",1],["automation-8","2026-07-23T05:32",1],["automation-8","2026-07-24T06:13",1],["automation-8","2026-07-25T13:11",1],["automation-8","2026-07-26T20:51",1],["automation-8","2026-07-27T20:41",1],["automation-8","2026-07-28T02:51",1],["automation-8","2026-07-29T21:08",1],["automation-8","2026-07-30T11:47",0],["automation-8","2026-07-31T09:48",1],["automation-8","2026-08-01T11:50",1],["automation-8","2026-08-02T14:04",1],["automation-8","2026-08-03T16:20",1],["automation-8","2026-08-04T13:23",1],["automation-8","2026-08-05T20:12",1],["automation-8","2026-08-06T19:38",1],["automation-8","2026-08-07T04:53",1],["automation-8","2026-08-08T11:49",1],["automation-8","2026-08-09T02:22",1],["automation-8","2026-08-10T03:20",1],["automation-8","2026-08-11T20:34",1],["automation-8","2026-08-12T03:36",1],["automation-8","2026-08-13T21:24",1],["automation-8","2026-08-14T04:12",1],["automation-8","2026-08-15T17:55",1],["automation-8","2026-08-16T01:13",1],["automation-8","2026-08-17T18:01",1],["automation-8","2026-08-18T23:35",1],["automation-8","2026-08-19T01:50",1],["automation-8","2026-08-20T21:08",1],["automation-8","2026-08-21T04:14",1],["automation-8","2026-08-22T13:33",1],["automation-8","2026-08-23T23:33",1],["automation-8","2026-08-24T09:28",1],["automation-8","2026-08-25T04:13",1],["automation-8","2026-08-26T04:45",1],["automation-8","2026-08-27T20:22",0],["automation-8","2026-08-28T02:48",1],["automation-8","2026-08-29T18:17",1],["automation-8","2026-08-30T05:42",1],["automation-8","2026-08-31T01:49",1],["automation-8","2026-09-01T16:55",1],["automation-9","2026-03-06T03:34",1],["automation-9","2026-04-05T18:49",1],["automation-10","2026-03-06T23:56",1],["automation-10","2026-03-07T17:16",1],["automation-10","2026-03-08T22:09",1],["automation-10","2026-03-09T15:57",1],["automation-10","2026-03-10T14:43",1],["automation-10","2026-03-11T00:27",1],["automation-10","2026-03-12T05:14",1],["automation-10","2026-03-13T20:29",1],["automation-10","2026-03-14T02:04",1],["automation-10","2026-03-15T21:51",1],["automation-10","2026-03-16T05:39",1],["automation-10","2026-03-17T07:21",1],["automation-10","2026-03-18T16:10",1],["automation-10","2026-03-19T02:33",1],["automation-10","2026-03-20T04:56",1],["automation-10","2026-03-21T18:03",1],["automation-10","2026-03-22T10:14",1],["automation-10","2026-03-23T16:37",1],["automation-10","2026-03-24T12:27",1],["automation-10","2026-03-25T18:34",1],["automation-10","2026-03-26T23:04",1],["automation-10","2026-03-27T18:58",1],["automation-10","2026-03-28T22:54",1],["automation-10","2026-03-29T15:24",1],["automation-10","2026-03-30T08:51",1],["automation-10","2026-03-31T09:55",1],["automation-10","2026-04-01T16:24",1],["automation-10","2026-04-02T19:08",1],["automation-10","2026-04-03T03:57",1],["automation-10","2026-04-04T01:06",1],["automation-10","2026-04-05T13:42",1],["automation-10","2026-04-06T15:53",1],["automation-10","2026-04-07T06:21",1],["automation-10","2026-04-08T08:47",1],["automation-10","2026-04-09T04:15",1],["automation-10","2026-04-10T02:02",1],["automation-10","2026-04-11T15:49",0],["automation-10","2026-04-12T15:56",1],["automation-10","2026-04-13T08:12",1],["automation-10","2026-04-14T17:08",1],["automation-10","2026-04-15T17:53",1],["automation-10","2026-04-16T09:19",1],["automation-10","2026-04-17T15:31",1],["automation-10","2026-04-18T22:12",1],["automation-10","2026-04-19T12:23",1],["automation-10","2026-04-20T12:56",1],["automation-10","2026-04-21T16:26",1],["automation-10","2026-04-22T01:10",1],["automation-10","2026-04-23T16:51",1],["automation-10","2026-04-24T17:12",1],["automation-10","2026-04-25T16:05",1],["automation-10","2026-04-26T18:09",0],["automation-10","2026-04-27T16:30",1],["automation-10","2026-04-28T23:19",1],["automation-10","2026-04-29T01:48",1],["automation-10","2026-04-30T15:20",1],["automation-10","2026-05-01T22:55",1],["automation-10","2026-05-02T20:58",1],["automation-10","2026-05-03T09:13",1],["automation-10","2026-05-04T19:03",1],["automation-10","2026-05-05T16:28",1],["automation-10","2026-05-06T16:24",0],["automation-10","2026-05-07T07:35",1],["automation-10","2026-05-08T14:57",1],["automation-10","2026-05-09T07:35",1],["automation-10","2026-05-10T06:39",1],["automation-10","2026-05-11T13:59",1],["automation-10","2026-05-12T14:38",1],["automation-10","2026-05-13T09:17",1],["automation-10","2026-05-14T16:21",0],["automation-10","2026-05-15T21:41",1],["automation-10","2026-05-16T03:19",1],["automation-10","2026-05-17T17:29",1],["automation-10","2026-05-18T06:28",1],["automation-10","2026-05-19T20:44",1],["automation-10","2026-05-20T13:42",1],["automation-10","2026-05-21T03:40",1],["automation-10","2026-05-22T04:07",1],["automation-10","2026-05-23T14:54",1],["automation-10","2026-05-24T05:03",1],["automation-10","2026-05-25T13:30",1],["automation-10","2026-05-26T15:34",1],["automation-10","2026-05-27T01:23",1],["automation-10","2026-05-28T11:29",1],["automation-10","2026-05-29T18:27",1],["automation-10","2026-05-30T17:18",0],["automation-10","2026-05-31T01:28",1],["automation-10","2026-06-01T11:37",1],["automation-10","2026-06-02T20:53",1],["automation-10","2026-06-03T03:13",1],["automation-10","2026-06-04T01:30",1],["automation-10","2026-06-05T06:45",1],["automation-10","2026-06-06T00:35",1],["automation-10","2026-06-07T12:31",1],["automation-10","2026-06-08T09:09",1],["automation-10","2026-06-09T08:11",1],["automation-10","2026-06-10T13:28",1],["automation-10","2026-06-11T13:25",1],["automation-10","2026-06-12T18:45",1],["automation-10","2026-06-13T03:00",1],["automation-10","2026-06-14T15:06",1],["automation-10","2026-06-15T06:54",1],["automation-10","2026-06-16T20:10",1],["automation-10","2026-06-17T19:52",1],["automation-10","2026-06-18T06:02",1],["automation-10","2026-06-19T11:31",1],["automation-10","2026-06-20T03:30",1],["automation-10","2026-06-21T15:54",1],["automation-10","2026-06-22T04:49",1],["automation-10","2026-06-23T22:09",1],["automation-10","2026-06-24T03:08",1],["automation-10","2026-06-25T21:38",1],["automation-10","2026-06-26T14:59",1],["automation-10","2026-06-27T09:35",1],["automation-10","2026-06-28T02:09",1],["automation-10","2026-06-29T12:20",1],["automation-10","2026-06-30T12:16",1],["automation-10","2026-07-01T17:06",1],["automation-10","2026-07-02T17:20",1],["automation-10","2026-07-03T19:20",1],["automation-10","2026-07-04T11:05",1],["automation-10","2026-07-05T23:58",1],["automation-10","2026-07-06T15:19",1],["automation-10","2026-07-07T07:52",0],["automation-10","2026-07-08T22:55",1],["automation-10","2026-07-09T12:16",1],["automation-10","2026-07-10T01:38",1],["automation-10","2026-07-11T10:45",1],["automation-10","2026-07-12T03:20",1],["automation-10","2026-07-13T06:00",1],["automation-10","2026-07-14T20:56",0],["automation-10","2026-07-15T21:17",0],["automation-10","2026-07-16T23:38",1],["automation-10","2026-07-17T15:21",1],["automation-10","2026-07-18T10:01",1],["automation-10","2026-07-19T11:15",1],["automation-10","2026-07-20T00:08",1],["automation-10","2026-07-21T01:34",1],["automation-10","2026-07-22T07:45",0],["automation-10","2026-07-23T09:22",1],["automation-10","2026-07-24T05:43",1],["automation-10","2026-07-25T16:14",1],["automation-10","2026-07-26T23:05",1],["automation-10","2026-07-27T17:26",1],["automation-10","2026-07-28T20:40",1],["automation-10","2026-07-29T08:05",1],["automation-10","2026-07-30T10:37",1],["automation-10","2026-07-31T14:57",1],["automation-10","2026-08-01T00:44",1],["automation-10","2026-08-02T22:12",1],["automation-10","2026-08-03T06:07",1],["automation-10","2026-08-04T09:11",1],["automation-10","2026-08-05T03:06",1],["automation-10","2026-08-06T05:55",1],["automation-10","2026-08-07T21:51",1],["automation-10","2026-08-08T21:49",1],["automation-10","2026-08-09T14:07",1],["automation-10","2026-08-10T17:44",1],["automation-10","2026-08-11T23:06",1],["automation-10","2026-08-12T06:00",1],["automation-10","2026-08-13T12:02",0],["automation-10","2026-08-14T07:21",1],["automation-10","2026-08-15T06:07",1],["automation-10","2026-08-16T11:45",1],["automation-10","2026-08-17T07:16",1],["automation-10","2026-08-18T12:03",1],["automation-10","2026-08-19T23:23",1],["automation-10","2026-08-20T06:21",1],["automation-10","2026-08-21T00:38",1],["automation-10","2026-08-22T15:12",1],["automation-10","2026-08-23T12:59",1],["automation-10","2026-08-24T06:29",1],["automation-10","2026-08-25T14:33",1],["automation-10","2026-08-26T07:21",1],["automation-10","2026-08-27T18:38",0],["automation-10","2026-08-28T02:47",1],["automation-10","2026-08-29T18:38",1]]};
+const TASKS0 = DATA.tasks;
+const AUTOMATIONS = DATA.automations;
+// 실행기록은 용량을 줄이려 [자동화ID, 실행일시, 성공여부] 배열로 압축해 둠
+const RUNS = DATA.runs.map(r => ({ automationId: r[0], ranAt: r[1], status: r[2] ? "success" : "fail" }));
+
+/* ===== 저장소: localStorage가 막혀도 화면은 동작하도록 try/catch ===== */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("mydash:" + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("mydash:" + k, JSON.stringify(v)); } catch {} },
+};
+const state = {
+  threshold: store.get("threshold", 0),
+  theme: store.get("theme", "system"),
+  collapsed: store.get("collapsed", false),
+  tasks: store.get("tasks", null) || JSON.parse(JSON.stringify(TASKS0)), // 업무 목록 (추가·수정·삭제 모두 여기에 반영)
+  events: store.get("events", []),           // 내가 추가한 일정
+  project: "전체",
+  month: new Date(DATA_ANCHOR + "T00:00:00"),
+};
+state.month.setDate(1);
+
+/* ===== 유틸 ===== */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const daysPast = (d, anchor = DATA_ANCHOR) => Math.round((new Date(anchor + "T00:00:00") - new Date(d + "T00:00:00")) / 86400000);
+const formatDday = d => { const n = daysPast(d); return n === 0 ? "D-day" : n > 0 ? "D+" + n : "D" + n; };
+const pad = n => String(n).padStart(2, "0");
+const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const PRIORITY = { low: "낮음", medium: "보통", high: "높음" };
+const PRIORITY_CLS = { low: "secondary", medium: "", high: "destructive" };
+
+const I = {
+  home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3L2 6M22 6l-3-3"/>',
+  film: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4M17 16h4"/>',
+  list: '<path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/>',
+  cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  flow: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M6.5 10v4a3 3 0 0 0 3 3H14"/>',
+  left: '<path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"/>',
+  right: '<path d="M6 17l5-5-5-5M13 17l5-5-5-5"/>',
+  chevL: '<path d="M15 18l-6-6 6-6"/>', chevR: '<path d="M9 18l6-6-6-6"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+};
+const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+
+const NAV = [
+  { title: "홈", href: "#/", icon: "home", group: "일반" },
+  { title: "지연 현황", href: "#/delay", icon: "clock", group: "업무 관리" },
+  { title: "업무 관리", href: "#/tasks", icon: "list", group: "일정 관리" },
+  { title: "캘린더", href: "#/calendar", icon: "cal", group: "일정 관리" },
+  { title: "설정", href: "#/settings", icon: "gear", group: "계정" },
+];
+
+/* ===== 데이터 계산 (원본 analytics 로직과 동일) ===== */
+const getTasks = () => state.tasks;
+const saveTasks = () => store.set("tasks", state.tasks);
+const saveEvents = () => store.set("events", state.events);
+
+function getDelayItems() {
+  const th = state.threshold;
+  const tasks = getTasks().filter(t => t.status !== "done")
+    .map(t => ({ kind: "task", id: t.id, title: t.title, subtitle: t.project, daysOverdue: daysPast(t.dueDate), raw: t }))
+    .filter(x => x.daysOverdue > th);
+  const autos = AUTOMATIONS.filter(a => a.status === "active").map(a => {
+    const last = RUNS.filter(r => r.automationId === a.id).sort((x, y) => y.ranAt.localeCompare(x.ranAt))[0];
+    return { a, since: last ? daysPast(last.ranAt.slice(0, 10)) : Infinity };
+  }).filter(({ a, since }) => since > a.expectedIntervalDays + th)
+    .map(({ a, since }) => ({ kind: "automation", id: a.id, title: a.name, subtitle: a.category, daysOverdue: since, raw: a }));
+  return [...tasks, ...autos].sort((x, y) => y.daysOverdue - x.daysOverdue);
+}
+const weeklyCompleted = () => getTasks().filter(t => t.completedAt && daysPast(t.completedAt) < 7).length;
+function successRate7d() {
+  const recent = RUNS.filter(r => daysPast(r.ranAt.slice(0, 10)) <= 7);
+  return recent.length ? recent.filter(r => r.status === "success").length / recent.length : null;
+}
+
+/* ===== 공통 UI ===== */
+function renderSidebar() {
+  const side = document.getElementById("side");
+  side.classList.toggle("collapsed", state.collapsed);
+  const groups = [...new Set(NAV.map(n => n.group))];
+  const cur = location.hash || "#/";
+  side.innerHTML = `
+    <div class="brand">
+      <div class="logo"><b>${esc(SERVICE_NAME[0])}</b><span>${esc(SERVICE_NAME)}</span></div>
+      <button class="toggle" id="collapseBtn" aria-label="사이드바 접기/펴기">${icon(state.collapsed ? "right" : "left")}</button>
+    </div>` + groups.map(g => `
+    <nav aria-label="${esc(g)}"><div class="group-title">${esc(g)}</div>
+      ${NAV.filter(n => n.group === g).map(n => `
+        <a href="${n.href}" class="${cur === n.href ? "active" : ""}" title="${esc(n.title)}">${icon(n.icon)}<span class="nav-label">${esc(n.title)}</span></a>`).join("")}
+    </nav>`).join("");
+  document.getElementById("collapseBtn").onclick = () => { state.collapsed = !state.collapsed; store.set("collapsed", state.collapsed); renderSidebar(); };
+}
+function applyTheme() {
+  const dark = state.theme === "dark" || (state.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+  document.getElementById("themeBtns").innerHTML = ["light", "dark", "system"].map(v =>
+    `<button class="btn sm ${state.theme === v ? "on" : ""}" data-theme="${v}" title="${{light:"라이트",dark:"다크",system:"시스템"}[v]}">${icon({light:"sun",dark:"moon",system:"monitor"}[v])}</button>`).join("");
+  document.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { state.theme = b.dataset.theme; store.set("theme", state.theme); applyTheme(); });
+}
+function openSheet(html) {
+  document.getElementById("sheet").innerHTML = html;
+  document.getElementById("sheet").classList.add("open");
+  document.getElementById("overlay").classList.add("open");
+}
+function closeSheet() {
+  document.getElementById("sheet").classList.remove("open");
+  document.getElementById("overlay").classList.remove("open");
+}
+document.getElementById("overlay").onclick = closeSheet;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+const thresholdLabel = d => d === 0 ? "예정일이 지나면 바로" : `예정일보다 ${d}일 더 지나면`;
+
+/* ===== 페이지 ===== */
+const pages = {
+  "#/"(v) {
+    const todayCount = TASKS0.filter(t => t.dueDate === DATA_ANCHOR).length + state.events.filter(e => e.start.slice(0, 10) === DATA_ANCHOR).length;
+    const rate = successRate7d();
+    const kpis = [
+      { l: "오늘 지연된 업무/자동화", v: getDelayItems().length.toLocaleString("ko-KR"), i: "clock", c: "background:#FFF1E8;color:#FA896B" },
+      { l: "오늘 예정된 일정", v: todayCount.toLocaleString("ko-KR") + "건", i: "cal", c: "background:#ECF2FF;color:#4570EA" },
+      { l: "이번 주 처리한 업무", v: weeklyCompleted().toLocaleString("ko-KR"), i: "list", c: "background:#E7FBF6;color:#0FBE9E" },
+      { l: "자동화 성공률(최근 7일)", v: rate === null ? "-" : Math.round(rate * 100) + "%", i: "flow", c: "background:#FFF6E5;color:#E0980C" },
+    ];
+    v.innerHTML = `<h2>홈</h2><div class="grid4">${kpis.map(k => `
+      <div class="card kpi"><div><div class="l">${k.l}</div><div class="v">${k.v}</div></div>
+      <div class="ico" style="${k.c}">${icon(k.i)}</div></div>`).join("")}</div>`;
+  },
+
+  "#/delay"(v) {
+    const draw = () => {
+      const items = getDelayItems();
+      v.innerHTML = `<h2>지연 현황</h2>
+        <div class="card"><div class="kv" style="margin-bottom:8px"><b>지연 기준</b><span class="muted">${thresholdLabel(state.threshold)}</span></div>
+          <input type="range" id="th" min="0" max="14" step="1" value="${state.threshold}"></div>
+        <p class="muted" style="margin:0">${items.length}건이 지연되고 있어요</p>
+        ${items.length === 0 ? `<div class="empty">${icon("clock")}<p>지연된 항목이 없어요. 기준을 조절해 보세요.</p></div>` :
+        `<div class="list">${items.map((it, n) => `
+          <button class="item" data-n="${n}">${icon(it.kind === "task" ? "list" : "flow")}
+            <div class="t"><b>${esc(it.title)}</b><small>${esc(it.subtitle)}</small></div>
+            <span class="badge destructive">${it.kind === "task" ? "D+" + it.daysOverdue : it.daysOverdue + "일째 미실행"}</span></button>`).join("")}</div>`}`;
+      const th = document.getElementById("th");
+      th.oninput = () => { state.threshold = +th.value; store.set("threshold", state.threshold); draw(); document.getElementById("th").focus(); };
+      v.querySelectorAll(".item").forEach(b => b.onclick = () => showDelayDetail(items[+b.dataset.n]));
+    };
+    draw();
+  },
+
+  "#/tasks"(v) {
+    const draw = () => {
+      const all = getTasks();
+      const projects = [...new Set(all.map(t => t.project))];
+      if (state.project !== "전체" && !projects.includes(state.project)) state.project = "전체"; // 삭제로 사라진 프로젝트 필터 해제
+      const list = state.project === "전체" ? all : all.filter(t => t.project === state.project);
+      const col = (title, status) => {
+        const ts = list.filter(t => t.status === status);
+        return `<div class="col"><div class="hd"><b>${title}</b><small>${ts.length}건</small></div>
+          ${ts.length === 0 ? `<p class="empty" style="padding:32px 8px;font-size:12px">아직 없어요</p>` : ts.map(card).join("")}</div>`;
+      };
+      const card = t => {
+        const over = daysPast(t.dueDate) > 0 && t.status !== "done";
+        const next = { todo: "진행중으로", in_progress: "완료로" }[t.status];
+        return `<div class="tcard"><div class="top"><span style="font-weight:500">${esc(t.title)}</span>
+          <span class="badge ${PRIORITY_CLS[t.priority]}">${PRIORITY[t.priority]}</span></div>
+          <div class="meta"><span>${esc(t.project)}</span><span class="${over ? "over" : ""}">${formatDday(t.dueDate)}</span></div>
+          <div class="row">${next ? `<button class="btn sm" data-move="${t.id}">${next} 이동</button>` : ""}
+            <button class="btn sm" data-edit="${t.id}">수정</button>
+            <button class="btn sm" data-del="${t.id}" style="color:var(--destructive)">삭제</button></div></div>`;
+      };
+      v.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><h2>업무 관리</h2><button class="btn on" id="newTask">+ 새 업무</button></div>
+        <div class="row">${["전체", ...projects].map(p => `<button class="btn sm ${p === state.project ? "on" : ""}" data-p="${esc(p)}">${esc(p)}</button>`).join("")}</div>
+        <div class="cols">${col("할 일", "todo")}${col("진행중", "in_progress")}${col("완료", "done")}</div>`;
+      v.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { state.project = b.dataset.p; draw(); });
+      v.querySelectorAll("[data-move]").forEach(b => b.onclick = () => {
+        const t = getTasks().find(x => x.id === b.dataset.move);
+        t.status = t.status === "todo" ? "in_progress" : "done";
+        if (t.status === "done") t.completedAt = DATA_ANCHOR;
+        saveTasks(); draw();
+      });
+      document.getElementById("newTask").onclick = () => openTaskForm(null);
+      v.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openTaskForm(getTasks().find(x => x.id === b.dataset.edit)));
+      v.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+        const t = getTasks().find(x => x.id === b.dataset.del);
+        if (confirm(`"${t.title}" 업무를 삭제할까요?`)) { state.tasks = state.tasks.filter(x => x.id !== t.id); saveTasks(); draw(); }
+      });
+    };
+    draw();
+  },
+
+  "#/calendar"(v) {
+    const draw = () => {
+      const m = state.month, y = m.getFullYear(), mo = m.getMonth();
+      const start = new Date(y, mo, 1 - new Date(y, mo, 1).getDay());       // 첫 주 일요일부터
+      const weeks = Math.ceil((new Date(y, mo, 1).getDay() + new Date(y, mo + 1, 0).getDate()) / 7);
+      // 날짜별 일정 모으기: 업무 마감일 + 내가 추가한 일정
+      const byDay = {};
+      const put = (k, e) => (byDay[k] = byDay[k] || []).push(e);
+      getTasks().forEach(t => put(t.dueDate, { cls: "task" + (t.status === "done" ? " done" : ""), text: t.title, taskId: t.id }));
+      state.events.forEach(e => put(e.start.slice(0, 10), { cls: "mine", text: e.start.slice(11, 16) + " " + e.title, id: e.id }));
+      let cells = ["일", "월", "화", "수", "목", "금", "토"].map(d => `<div class="dow">${d}</div>`).join("");
+      for (let i = 0; i < weeks * 7; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), k = dateKey(d), ev = byDay[k] || [];
+        cells += `<div class="day ${d.getMonth() !== mo ? "other" : ""} ${k === DATA_ANCHOR ? "today" : ""}"><span class="num">${d.getDate()}</span>
+          ${ev.slice(0, 3).map(e => `<button class="chip ${e.cls}" ${e.id ? `data-ev="${e.id}"` : `data-task="${e.taskId}"`} title="${esc(e.text)}">${esc(e.text)}</button>`).join("")}
+          ${ev.length > 3 ? `<span class="more">+${ev.length - 3}개 더</span>` : ""}</div>`;
+      }
+      v.innerHTML = `<h2>캘린더</h2>
+        <div class="cal-head"><button class="btn sm" id="prev">${icon("chevL")}</button><b>${y}년 ${mo + 1}월</b>
+          <button class="btn sm" id="next">${icon("chevR")}</button><button class="btn sm" id="today" style="margin-left:8px">오늘</button></div>
+        <div class="cal">${cells}</div>
+        <p class="muted" style="margin:0;font-size:12px">파란 칩은 업무 마감일, 보라 칩은 직접 추가한 일정이에요. 칩을 누르면 수정·삭제할 수 있어요. (구글 캘린더 연동은 로그인이 필요해 제외했어요)</p>
+        <div class="card"><h3>새 일정 추가</h3><div class="row">
+          <input type="text" id="evTitle" placeholder="일정 제목" style="flex:1;min-width:160px">
+          <input type="datetime-local" id="evStart"><button class="btn on" id="evAdd" disabled>추가</button></div></div>`;
+      document.getElementById("prev").onclick = () => { state.month = new Date(y, mo - 1, 1); draw(); };
+      document.getElementById("next").onclick = () => { state.month = new Date(y, mo + 1, 1); draw(); };
+      document.getElementById("today").onclick = () => { const a = new Date(DATA_ANCHOR + "T00:00:00"); state.month = new Date(a.getFullYear(), a.getMonth(), 1); draw(); };
+      const t = document.getElementById("evTitle"), s = document.getElementById("evStart"), add = document.getElementById("evAdd");
+      const sync = () => add.disabled = !(t.value.trim() && s.value);
+      t.oninput = s.oninput = sync;
+      add.onclick = () => {
+        state.events.push({ id: "ev-" + Date.now(), title: t.value.trim(), start: s.value });
+        saveEvents(); draw();
+      };
+      v.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => openEventForm(state.events.find(e => e.id === b.dataset.ev)));
+      v.querySelectorAll("[data-task]").forEach(b => b.onclick = () => openTaskForm(getTasks().find(x => x.id === b.dataset.task)));
+    };
+    draw();
+  },
+
+  "#/settings"(v) {
+    const draw = () => {
+      v.innerHTML = `<h2>설정</h2>
+        <div class="card"><h3>테마</h3><div class="row">${[["light","라이트","sun"],["dark","다크","moon"],["system","시스템","monitor"]].map(([val, lab, ic]) =>
+          `<button class="btn ${state.theme === val ? "on" : ""}" style="flex:1" data-t="${val}">${icon(ic)}${lab}</button>`).join("")}</div></div>
+        <div class="card"><h3>지연 판정 기준값</h3>
+          <div class="kv" style="margin-bottom:8px"><b style="font-weight:500">지연 기준</b><span class="muted">${thresholdLabel(state.threshold)}</span></div>
+          <input type="range" id="th" min="0" max="14" step="1" value="${state.threshold}"></div>
+        <div class="card"><h3>저장된 변경 내용 초기화</h3>
+          <p class="muted" style="margin-top:0">업무·일정을 추가·수정·삭제한 내용과 기준값은 이 브라우저에만 저장돼요.</p>
+          <button class="btn" id="reset">모두 초기화</button></div>`;
+      v.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { state.theme = b.dataset.t; store.set("theme", state.theme); applyTheme(); draw(); });
+      const th = document.getElementById("th");
+      th.oninput = () => { state.threshold = +th.value; store.set("threshold", state.threshold); draw(); document.getElementById("th").focus(); };
+      document.getElementById("reset").onclick = () => {
+        if (!confirm("업무·일정 변경 내용과 지연 기준값을 모두 처음 상태로 되돌릴까요?")) return;
+        Object.assign(state, { tasks: JSON.parse(JSON.stringify(TASKS0)), events: [], threshold: 0 });
+        ["tasks", "events", "threshold"].forEach(k => store.set(k, state[k]));
+        draw();
+      };
+    };
+    draw();
+  },
+};
+
+function showDelayDetail(it) {
+  const rows = it.kind === "task"
+    ? [["마감일", it.raw.dueDate], ["우선순위", PRIORITY[it.raw.priority]], ["지연일", `<span class="badge destructive">D+${it.daysOverdue}</span>`]]
+    : [["실행 주기", esc(it.raw.scheduleLabel)], ["설명", esc(it.raw.description)], ["미실행 기간", `<span class="badge destructive">${it.daysOverdue}일째</span>`]];
+  openSheet(`<div><h4>${esc(it.title)}</h4><div class="muted">${esc(it.subtitle)}</div></div>
+    ${rows.map(([k, val]) => `<div class="kv"><span class="muted">${k}</span><span>${val}</span></div>`).join("")}
+    ${it.kind === "task" ? `<button class="btn on" id="dEdit">업무 수정</button>` : ""}
+    <button class="btn" onclick="closeSheet()">닫기</button>`);
+  if (it.kind === "task") document.getElementById("dEdit").onclick = () => openTaskForm(it.raw);
+}
+
+/* ===== 추가·수정·삭제 폼 (오른쪽 패널) ===== */
+const field = (label, input) => `<label class="fld"><span>${label}</span>${input}</label>`;
+const options = (pairs, cur) => pairs.map(([k, l]) => `<option value="${k}" ${cur === k ? "selected" : ""}>${l}</option>`).join("");
+const $ = id => document.getElementById(id);
+
+// t가 null이면 새 업무 추가, 있으면 수정(+삭제)
+function openTaskForm(t) {
+  const isNew = !t;
+  const d = t || { title: "", project: state.project !== "전체" ? state.project : "", dueDate: DATA_ANCHOR, priority: "medium", status: "todo" };
+  const projects = [...new Set(state.tasks.map(x => x.project))];
+  openSheet(`<h4>${isNew ? "새 업무" : "업무 수정"}</h4>
+    ${field("제목", `<input type="text" id="fTitle" value="${esc(d.title)}">`)}
+    ${field("프로젝트", `<input type="text" id="fProject" list="projList" value="${esc(d.project)}"><datalist id="projList">${projects.map(p => `<option value="${esc(p)}">`).join("")}</datalist>`)}
+    ${field("마감일", `<input type="date" id="fDue" value="${d.dueDate}">`)}
+    ${field("우선순위", `<select id="fPri">${options(Object.entries(PRIORITY), d.priority)}</select>`)}
+    ${field("상태", `<select id="fStatus">${options([["todo", "할 일"], ["in_progress", "진행중"], ["done", "완료"]], d.status)}</select>`)}
+    <p class="muted" id="fErr" style="margin:0;color:var(--destructive)"></p>
+    <div class="row" style="margin-top:auto">
+      ${isNew ? "" : `<button class="btn" id="fDel" style="color:var(--destructive)">삭제</button>`}
+      <button class="btn" id="fCancel" style="margin-left:auto">취소</button><button class="btn on" id="fSave">저장</button></div>`);
+  $("fCancel").onclick = closeSheet;
+  $("fSave").onclick = () => {
+    const title = $("fTitle").value.trim(), project = $("fProject").value.trim(), dueDate = $("fDue").value;
+    if (!title || !project || !dueDate) { $("fErr").textContent = "제목, 프로젝트, 마감일은 꼭 입력해 주세요."; return; }
+    const status = $("fStatus").value, priority = $("fPri").value;
+    if (isNew) {
+      state.tasks.push({ id: "task-" + Date.now(), title, project, dueDate, status, priority, createdAt: DATA_ANCHOR, completedAt: status === "done" ? DATA_ANCHOR : null });
+    } else {
+      // 완료로 바꾸면 완료일 기록, 완료가 아니게 바꾸면 완료일 삭제
+      const completedAt = status === "done" ? (t.completedAt || DATA_ANCHOR) : null;
+      Object.assign(t, { title, project, dueDate, status, priority, completedAt });
+    }
+    saveTasks(); route();
+  };
+  if (!isNew) $("fDel").onclick = () => {
+    if (!confirm(`"${t.title}" 업무를 삭제할까요?`)) return;
+    state.tasks = state.tasks.filter(x => x.id !== t.id); saveTasks(); route();
+  };
+}
+
+// ev가 있으면 내가 추가한 일정 수정(+삭제)
+function openEventForm(ev) {
+  openSheet(`<h4>일정 수정</h4>
+    ${field("제목", `<input type="text" id="eTitle" value="${esc(ev.title)}">`)}
+    ${field("일시", `<input type="datetime-local" id="eStart" value="${ev.start}">`)}
+    <p class="muted" id="eErr" style="margin:0;color:var(--destructive)"></p>
+    <div class="row" style="margin-top:auto">
+      <button class="btn" id="eDel" style="color:var(--destructive)">삭제</button>
+      <button class="btn" id="eCancel" style="margin-left:auto">취소</button><button class="btn on" id="eSave">저장</button></div>`);
+  $("eCancel").onclick = closeSheet;
+  $("eSave").onclick = () => {
+    const title = $("eTitle").value.trim(), start = $("eStart").value;
+    if (!title || !start) { $("eErr").textContent = "제목과 일시를 입력해 주세요."; return; }
+    Object.assign(ev, { title, start }); saveEvents(); route();
+  };
+  $("eDel").onclick = () => {
+    if (!confirm("이 일정을 삭제할까요?")) return;
+    state.events = state.events.filter(e => e.id !== ev.id); saveEvents(); route();
+  };
+}
+
+/* ===== 라우터 ===== */
+function route() {
+  const h = pages[location.hash] ? location.hash : "#/";
+  closeSheet();
+  document.getElementById("pageTitle").textContent = NAV.find(n => n.href === h).title;
+  renderSidebar();
+  pages[h](document.getElementById("view"));
+}
+addEventListener("hashchange", route);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+applyTheme();
+route();
+</script>
+</body>
+</html>
